@@ -1,0 +1,322 @@
+---
+title: "Narrating the American Drug Abuse Crisis through Litigations of Pharmaceutical Companies between 2000 and 2019"
+author: "Hajra Sohail"
+date: "`r Sys.Date()`"
+output: 
+  rmdformats::downcute:
+    code_folding: show
+    self_contained: true
+    thumbnails: false
+    lightbox: true
+    downcute_theme: "chaos"
+
+pkgdown:
+  as_is: true
+
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(warning = FALSE, message = FALSE, echo = FALSE)
+
+```
+
+# Abstract
+
+The pharmaceutical industry holds a lot of influence over America- by working with researchers, governments, and health officials, Big Pharma companies are able to put many novel therapeutics onto the market that benefit many parties. However, due to a lack of drug regulation, increase in lobbying, and fradulent practices, the way many common, lifesaving drugs are priced and marketed has led to a drug abuse crisis. Evidence has shown that there is an “impact of physician-pharmaceutical industry interactions on increased prescribing frequency in favor of the promoted drugs, lower prescribing quality, and unnecessarily increased costs, which may have negative implications on patient care” (Fadlallah, 2016).
+
+For this final project, I want to explore the breakdown of legal proceedings against the top pharmaceutical companies by examining the distribution of cases by year, type of offense, and the description of each legal case. For example, one important legal event was regarding Purdue Pharma, who played a large role in initiating the opioid crisis in the United States. “Estimates in 2017 suggest 40.5 million people were dependent upon opioids and 109,500 people died from opioid overdose” (Degenhardt, 2019). “The epidemic of medical drug use [is] escalating with Americans using 80% of the world supply of all opioids and 99% of hydrocodine (Manchikanti, 2007). Looking at which types of lawsuits were settled during this 20-year time period could indicate why there are notable trends in death rates by type of drug and opioid prescribing rates by geography.
+
+# Question & Problem
+
+Are prosecutions against pharmaceutical companies correlated with prescribing rates and deaths of drugs between 2000 and 2019?
+
+# Scope
+
+An analysis of drug deaths and makeup of lawsuits was done on a national level. Supplemental pharmaceutical data that is on an international scale was used to compare companies.
+
+# Methods
+
+Data regarding pharmaceutical offenses was obtained via Good Jobs Tracker, which lists 1006 cases between 2004 and 2019. Bar charts showing distribution of cases by year, penalty type, offense, and parent company were created using this data.
+
+To connect distribution of cases by time with drug deaths over time in the U.S., OurWorldInData’s charts on ‘Opioids, cocaine, cannabis and illicit drugs' was used. This dataset details U.S. deaths by type of drug between 1990 and 2019. Fr further clarification on opioid-related detahs, opioid prescribing rates between 2006 and 2020 were collected from the CDC and were visualized via maps. 
+
+A scatterplot of the top 50 pharmaceutical companies was also analyzed, which lists each corporation's prescription sales and R&D spending in 2020 published by Pharmaceutical Executive. This plot connected the five companies with the greatest amount of penalties in the Violations Tracker datasheet.
+
+
+# Results
+
+
+```{r INSTALL PACKAGES, include = FALSE}
+
+library(tidyverse)
+library(dplyr)
+library(readr)
+library(ggrepel)
+
+```
+
+```{r LOAD IN DATA, include=FALSE}
+
+load("C:/Users/admin/OneDrive - Temple University/3 - 2021-2022/Spring 2022/Global Change Science, Analytics with R - BIOL 3323/Final/final_datasets.RData")
+
+```
+
+## Exploring Legal Cases
+
+
+Breaking down the Good Jobs Tracker Violations dataset shows that between 2000 and 2019, there have been a large amount of legal persecutions against pharmaceutical companies around 2010. The number of cases seem to drop off after 2013.
+
+The top three primary offenses within this time span are:
+
+1. False Claims Act Violations                                          
+2. Environmental Violations                                            
+3. Drug/Medical Equipment Safety Violations                                          
+   
+   
+```{r}
+pharmaoffenses <- pharmaoffenses_df 
+
+pharmaoffenses$`Penalty Amount Adjusted For Eliminating Multiple Counting` <- 
+  as.numeric(gsub('[$,]', '',pharmaoffenses$`Penalty Amount Adjusted For Eliminating Multiple Counting`))
+
+pharmaoffensespenalty <- pharmaoffenses %>% 
+  filter(`Penalty Amount Adjusted For Eliminating Multiple Counting` > 0)
+
+toppharmacompanies <- top50pharma_df %>% 
+  slice(3:52) %>% 
+  rename("company" = `Top 50 pharmaceutical companies - Rx sales and R&D spending 2020`,
+         "pres_sales" = `...2`,
+         "rdspending" = `...3`) 
+
+toppharmacompanies$pres_sales <- as.numeric(toppharmacompanies$pres_sales)
+toppharmacompanies$rdspending <- as.numeric(toppharmacompanies$rdspending)
+
+pharmaoffenses_df %>% 
+  filter(`Penalty Year` < 2021) %>% 
+  ggplot(mapping = aes(x = `Penalty Year`)) +
+  geom_bar(fill = "#38408f")  +
+  labs(title = "Legal Cases were Greatest Around 2010",
+       y = "Number of Legal Cases")  
+
+```
+
+
+``` {r}
+
+pharmaoffensescount <- pharmaoffenses_df %>% 
+  filter(`Penalty Year` < 2020) %>% 
+  pivot_longer(cols = c(`Primary Offense`, `Secondary Offense`), names_to = "offense type", values_to = "offense") %>% 
+  group_by(`Parent Company`, offense) %>% 
+  drop_na(offense) %>% 
+  count() %>% 
+  filter(n > 11) %>% 
+  mutate(`Offense` = fct_collapse(`offense`, 
+          `False Claims Act` = c("False Claims Act and related"),
+         `Environmental Violation` = "environmental violation",
+         `Equipment Safety Violation` = 'drug or medical equipment safety violation')) 
+
+pharmaoffensescount %>% 
+  ggplot(aes(x = `Offense`, y = `n`, fill = `Parent Company`)) +
+  geom_col() +
+  labs(title = 'Top Three Offenses Between 2000 and 2019',
+       subtitle = 'Eleven companies were involved in at least 12 counts of False Claims',
+       y = "Number of Primary and Secondary Offenses",
+       x = 'Offense') + 
+  theme_minimal()
+
+
+pharmaoffenses$`Penalty Amount Adjusted For Eliminating Multiple Counting` <- 
+  as.numeric(gsub('[$,]', '',pharmaoffenses$`Penalty Amount Adjusted For Eliminating Multiple Counting`))
+
+pharmaoffensespenalty <- pharmaoffenses %>% 
+  filter(`Penalty Amount Adjusted For Eliminating Multiple Counting` > 0)
+
+pharmaoffensespenaltygraph <- pharmaoffenses %>% 
+  group_by(`Parent Company`) %>% 
+  filter(`Penalty Year` < 2020) %>% 
+  mutate(totalpenalty = sum(`Penalty Amount Adjusted For Eliminating Multiple Counting`)) %>% 
+  select(`Parent Company`, 'totalpenalty') %>% 
+  filter(totalpenalty > 2900000000) %>% 
+  mutate(totalpenaltybillions = totalpenalty/1000000000) %>% 
+  group_by(`Parent Company`, totalpenaltybillions) %>% 
+  summarize() 
+  
+  
+pharmaoffensespenaltygraph %>%  
+  ggplot(aes(x = reorder(`Parent Company`, totalpenaltybillions), y = totalpenaltybillions)) +
+  geom_col(fill = "#38408f") +
+  labs(title = "Highest Penalties Paid, by Parent Company",
+       y = "Total Penalty Amount (billions)",
+       x = "Primary Offense",
+       subtitle = 'Five companies paid over 40 billion combined') + theme_minimal()
+
+```
+
+
+The False Claim Act refers to a federal law that prevents fraudulent acts within the United States healthcare system in clinical and research settings. Violations can include mismarketing of products, billing for services not performed, and inflating costs for Medicaid. 
+
+Viatris has 31 offenses of False Claims Act Violations alone. The largest penalty paid was in August 2017, when Viatris 'agreed to pay $465 million to resolve claims that they violated the False Claims Act by knowingly misclassifying EpiPen as a generic drug to avoid paying rebates owed primarily to Medicaid' (www.violationtracker.goodjobsfirst.org).
+
+
+
+``` {r}
+
+top5 <- tibble(company = c('GlaxoSmithKline (UK)', 'Johnson & Johnson (U.S)', 'Merck & Co. (U.S.)', 'Pfizer (U.S.)', 'Takeda (Japan)'))
+
+overlaytop5 <- left_join(top5, toppharmacompanies, by = 'company')
+
+
+ggplot(data = overlaytop5, mapping = aes(x = pres_sales, y = rdspending)) +
+  geom_point(size = 4) +
+  geom_point(data = toppharmacompanies, mapping = aes(x = pres_sales, y = rdspending, color = company)) +
+  theme(legend.position = "none") +
+  ggrepel::geom_label_repel(aes(label = company), data = overlaytop5) +
+  labs(title = 'Distribution of Top 50 Companies by Sales & Spending',
+       subtitle = 'The top five companies facing U.S. legal penalties tend to be more profitable',
+       y = 'Research & Development Spending Score',
+       x = "Prescription Sales Score") 
+
+```
+
+
+Connecting the top five companies paying penalties to the top fifty international pharmaceutical corporations shows that these litigations are targeting more profitable companies. It could be inferred that the money invested in R&D spending could have also included illegal acts such as mismarketing of products, which leads to an increase of prescription sales.
+
+
+## Exploring Drug Deaths
+
+```{r figures-side, fig.show="hold", out.width="50%"}
+drugdeaths <- drugdeaths_df %>% 
+  filter(Code == 'USA') %>% 
+  rename('opioid' = `Deaths - Opioid use disorders - Sex: Both - Age: All Ages (Number)`,
+         'cocaine' = `Deaths - Cocaine use disorders - Sex: Both - Age: All Ages (Number)`,
+         'other' = `Deaths - Other drug use disorders - Sex: Both - Age: All Ages (Number)`,
+         'amphetamine' = `Deaths - Amphetamine use disorders - Sex: Both - Age: All Ages (Number)`)
+
+drugdeaths_longdf <- drugdeaths %>% 
+  pivot_longer(cols = c('opioid', 'cocaine', 'other', 'amphetamine'), names_to = "drug", values_to = "deaths")
+
+ggplot(data = drugdeaths_longdf, aes(Year, deaths, color = drug)) +
+  geom_line(size = 2) +
+  labs(title = "Opioids cause the most Abuse", 
+       subtitle = "Opioid drug deaths exponentially grew since 1990", 
+       y = 'Number of Deaths') + 
+  scale_color_discrete(name = "Drug Type") + theme_minimal()
+
+firstslope <- drugdeaths_longdf %>% 
+  filter(Year > 1999 & Year < 2004)
+
+ggplot(data = drugdeaths_longdf, aes(Year, log10(deaths), color = drug)) +
+  geom_line(size = 2) +
+  labs(title = "Drug Abuse Death Rates Increased around 2000, 2012", subtitle = "Overall, rates increased over time",
+       y = "Number of Deaths, log10 Scale") + 
+  scale_color_discrete(name = "Drug Type") + theme_minimal() 
+
+
+```
+
+From these two graphs, it seems that death rates of all types except opioids have been steadily increasing over time. The greatest increase of drug death rate was around 2000 and 2012.
+
+According to [the CDC](https://www.cdc.gov/drugoverdose/deaths/index.html), there were three waves of opioid overdose deaths: the first wave started in 1999 when there was an increase of prescribed opioids.
+
+The second wave was around 2010, when there were rapid overdose deaths involving heroin. 
+
+The third wave was around 2013, as there was an increase of deaths due to synthetic opioids (fentanyl). It is important to note that many of these drug deaths may be an indirect result of risk factors, such as underlying health issues. 
+
+
+## Opioid Dispensing Rates
+
+
+```{r}
+
+us_states <- map_data("state")
+us_counties <- map_data("county")
+
+opioid_presrates_overtime <- opioid_presrates_overtime_df %>% 
+  mutate(State = tolower(State)) %>% 
+  rename(region = State) %>% 
+  pivot_longer(cols = c(`2006`:`2019`), names_to = 'year', values_to = 'presrate')
+
+opioid_presmap_overtime <- left_join(opioid_presrates_overtime, us_states, by = 'region')
+opioid_presmap_overtime$year = as.numeric(opioid_presmap_overtime$year)
+
+
+
+q <- ggplot(data = opioid_presmap_overtime,
+            mapping = aes(x = long, y = lat,
+                          group = group, fill = presrate))
+q + geom_polygon() +
+#  guides(fill = FALSE) +
+  geom_polygon(data = opioid_presmap_overtime) +
+  scale_fill_viridis_c(option = "C") +
+  facet_wrap(~year, nrow = 3) + 
+  theme_classic() +
+  labs(title = 'Opioid Prescribing Rates are on the Decline',
+       x = '',
+       y = '',
+       fill = 'Prescribing Rate per 100 people') +
+  theme(axis.line = element_blank(),
+    axis.text.x = element_blank(),
+    axis.text.y = element_blank(),
+    axis.ticks = element_blank(),
+    axis.title.x = element_blank(),
+    axis.title.y = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.grid.major = element_blank(),
+    panel.border = element_blank(),
+    legend.position = "bottom"
+  ) 
+
+```
+
+It seems that the South were prescribed more opioid drugs than other regions. Although there were not sufficient data regarding state cases in this area, it could be inferred that other state cases, such as ones in New York and Oregon, could have led to pharmaceutical companies to change their practices on a national scale to prevent further lawsuits.
+
+
+
+Below is a description of each legal case between 2000 and 2019 that refers to fueling the opioid crisis:
+
+```{r, results ='asis'}
+pharmaoffenses_opioidcases <- pharmaoffenses_df %>% 
+  filter(`Penalty Date` == 20150805 |
+`Penalty Date` == 20190605 |
+`Penalty Date` == 20170818 |
+`Penalty Date` == 20190326 |
+`Penalty Date` == 20190526
+) %>% 
+  select(`Penalty Year`, Description) %>% 
+  arrange(`Penalty Year`)
+
+
+knitr::kable(pharmaoffenses_opioidcases)
+```
+
+
+
+# Main Conclusions
+
+Ligitations against drug companies resulted in a noticeable difference in tackling the drug abuse crisis. Within the span of ten years, the number of legal proceedings nearly halved - from 84 in 2010, to just 29 in 2020.
+
+After these lawsuits, not only did drug death rates lower, but it was also seen that opioid prescribing rates decreased within each state. To avoid further legal action, companies such as AbbVie, Merck, and Viatris acted more accordingly to the False Claims Act and drug users were given more transparent information about side effects of certain prescriptions.
+
+It was interesting to see that indeed, the companies that paid more in penalties (Takeda, GlaxoSmithKline, Johnson & Johnson, Pfizer, & Merck) had more revenue. To study this relationship further, perhaps numerical modeling of each corporation's use of spending versus penalties could be conducted. 
+
+I expected to see more compelling data regarding the role of drug companies in beginning the drug abuse crisis, such as Purdue Pharma and their long-acting opioid Oxycontin. However, major court rulings for Purdue Pharma occurred in 2020, which was outside of the timeframe selected for this analysis.
+
+In the future, I believe there should be more concise and detailed studies on specific drugs that were mismarketed and how these actions affect prescribing rates and drug deaths. Although detailed descriptions were included in the Violations Tracker data, a categorical variable that listed the drug involved may have provided a different perspective on the offenses ruled.
+
+
+# References
+
+Degenhardt, Louisa et al. “Global patterns of opioid use and dependence: harms to populations, interventions, and future action.” Lancet (London, England) vol. 394,10208 (2019): 1560-1579. doi:10.1016/S0140-6736(19)32229-9.
+
+Fadlallah, Racha et al. “Knowledge, Beliefs and Attitudes of Patients and the General Public towards the Interactions of Physicians with the Pharmaceutical and the Device Industry: A Systematic Review.” PloS one vol. 11,8 e0160540. 24 Aug. 2016, doi:10.1371/journal.pone.0160540.
+
+Manchikanti, Laxmaiah. "National drug control policy and prescription drug abuse: facts and fallacies." Pain Physician, 2007 May, [https://pubmed.ncbi.nlm.nih.gov/17525776/](https://pubmed.ncbi.nlm.nih.gov/17525776/)
+
+Ritchie, Hannah and Roser, Max. "Opioids, cocaine, cannabis and illicit drugs". Our World in Data, 2018, [https://ourworldindata.org/illicit-drug-use](https://ourworldindata.org/illicit-drug-use). Accessed 17 Apr. 2022.
+
+"Top 50 pharmaceutical companies - Rx sales and R&D spending 2020". Pharmaceutical Executive. June 2021, [https://www.statista.com/statistics/273029/top-10-pharmaceutical-companies-sales-and-rundd-spending-in-2010/](https://www.statista.com/statistics/273029/top-10-pharmaceutical-companies-sales-and-rundd-spending-in-2010/). Accessed 16 Apr. 2022.
+
+
+"US Opioid Dispensing Rate Map". Centers for Disease Control and Prevention, 10 Nov. 2021, [https://www.cdc.gov/drugoverdose/rxrate-maps/index.html](https://www.cdc.gov/drugoverdose/rxrate-maps/index.html). Accessed 21 Apr. 2022.
+
+"Violation Tracker Industry Summary Page". Good Jobs First, 2022, [https://violationtracker.goodjobsfirst.org/industry/pharmaceuticals](https://violationtracker.goodjobsfirst.org/industry/pharmaceuticals). Accessed 17 Apr. 2022.
